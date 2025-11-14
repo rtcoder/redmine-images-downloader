@@ -1,7 +1,7 @@
 {
   "name": "Redmine Image Downloader",
   "description": "Quickly download images from Redmine",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Dawid Jeż",
   "minimum_chrome_version": "116",
   "manifest_version": 3,

@@ -1,7 +1,7 @@
 function detectRedmine() {
-    const meta = document.querySelector('meta[name="generator"]');
+    const meta = document.querySelector('meta[name="generator"]') || document.querySelector('meta[name="description"]');
     const bodyClass = document.body?.className || '';
-    const hasHeader = !!document.querySelector('#header h1 a[href*="projects"]');
+    const hasHeader = !!document.querySelector('#header h1 .current-project');
 
     return (
         (meta && meta.content.includes('Redmine')) ||
