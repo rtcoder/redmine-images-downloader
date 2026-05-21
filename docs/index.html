@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Redmine Image Downloader — Download all images with one click</title>
+  <meta name="description" content="A Chrome extension that adds a Download All button to Redmine image attachments. Save time — get all images from a post in one click." />
+  <link rel="icon" type="image/png" href="../extension/images/icon128.png" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --red:    #c0392b;
+      --red-dk: #96281b;
+      --gray-1: #f7f8fa;
+      --gray-2: #eef0f4;
+      --gray-3: #c8cdd6;
+      --gray-4: #7a8394;
+      --dark:   #1a1d23;
+      --text:   #2d3240;
+      --radius: 12px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--text);
+      background: #fff;
+      line-height: 1.6;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2rem;
+      height: 60px;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--gray-2);
+    }
+
+    .nav-brand {
+      display: flex; align-items: center; gap: .6rem;
+      font-weight: 700; font-size: 1rem; color: var(--dark);
+      text-decoration: none;
+    }
+
+    .nav-brand img { width: 28px; height: 28px; border-radius: 6px; }
+
+    nav a.btn-nav {
+      font-size: .875rem; font-weight: 600;
+      color: #fff; background: var(--red);
+      padding: .45rem 1.1rem; border-radius: 8px;
+      text-decoration: none;
+      transition: background .15s;
+    }
+
+    nav a.btn-nav:hover { background: var(--red-dk); }
+
+    /* ── HERO ── */
+    .hero {
+      display: flex; flex-direction: column; align-items: center;
+      text-align: center;
+      padding: 6rem 2rem 5rem;
+      background: linear-gradient(160deg, #fff 60%, var(--gray-1) 100%);
+    }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: .4rem;
+      font-size: .8rem; font-weight: 600; letter-spacing: .04em;
+      color: var(--red); background: #fdecea;
+      padding: .3rem .85rem; border-radius: 100px;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.25rem);
+      font-weight: 800; line-height: 1.15;
+      color: var(--dark);
+      max-width: 700px;
+    }
+
+    .hero h1 span { color: var(--red); }
+
+    .hero p {
+      margin-top: 1.25rem;
+      font-size: 1.15rem; color: var(--gray-4);
+      max-width: 520px;
+    }
+
+    .hero-cta {
+      display: flex; flex-wrap: wrap; gap: .85rem;
+      justify-content: center;
+      margin-top: 2.5rem;
+    }
+
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: .5rem;
+      font-size: 1rem; font-weight: 700;
+      color: #fff; background: var(--red);
+      padding: .85rem 2rem; border-radius: var(--radius);
+      text-decoration: none;
+      box-shadow: 0 4px 18px rgba(192,57,43,.35);
+      transition: background .15s, transform .1s, box-shadow .15s;
+    }
+
+    .btn-primary:hover {
+      background: var(--red-dk);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 22px rgba(192,57,43,.45);
+    }
+
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: .5rem;
+      font-size: 1rem; font-weight: 600;
+      color: var(--dark); background: #fff;
+      padding: .85rem 2rem; border-radius: var(--radius);
+      text-decoration: none;
+      border: 1.5px solid var(--gray-3);
+      transition: border-color .15s, transform .1s;
+    }
+
+    .btn-secondary:hover { border-color: var(--gray-4); transform: translateY(-2px); }
+
+    /* ── DEMO CARD ── */
+    .demo-wrap {
+      padding: 2rem 2rem 5rem;
+      display: flex; justify-content: center;
+    }
+
+    .demo-card {
+      background: var(--gray-1);
+      border: 1.5px solid var(--gray-2);
+      border-radius: 18px;
+      padding: 2rem 2.5rem;
+      max-width: 700px; width: 100%;
+      box-shadow: 0 8px 40px rgba(0,0,0,.06);
+    }
+
+    .demo-card-header {
+      display: flex; align-items: center; gap: .5rem;
+      margin-bottom: 1rem;
+    }
+
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot-red    { background: #ff5f57; }
+    .dot-yellow { background: #febc2e; }
+    .dot-green  { background: #28c840; }
+
+    .demo-section-title {
+      font-size: .7rem; font-weight: 600; letter-spacing: .08em;
+      color: var(--gray-4); text-transform: uppercase;
+      margin-bottom: .75rem;
+    }
+
+    .demo-attachments {
+      display: flex; flex-wrap: wrap; gap: .5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .demo-thumb {
+      width: 72px; height: 56px;
+      background: var(--gray-3);
+      border-radius: 6px;
+      border: 1.5px solid var(--gray-2);
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .demo-thumb svg { opacity: .45; }
+
+    .demo-download-btn {
+      display: inline-flex; align-items: center; gap: .5rem;
+      font-size: .85rem; font-weight: 700;
+      color: #fff; background: var(--red);
+      padding: .55rem 1.25rem; border-radius: 8px;
+      border: none; cursor: default;
+      box-shadow: 0 2px 8px rgba(192,57,43,.3);
+    }
+
+    .demo-arrow {
+      font-size: .75rem; color: var(--gray-4);
+      margin-top: .6rem;
+    }
+
+    /* ── FEATURES ── */
+    .section {
+      padding: 5rem 2rem;
+    }
+
+    .section-center { text-align: center; }
+
+    .section-label {
+      font-size: .8rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--red);
+      margin-bottom: .75rem;
+    }
+
+    .section h2 {
+      font-size: clamp(1.6rem, 3.5vw, 2.25rem);
+      font-weight: 800; color: var(--dark);
+      line-height: 1.2;
+    }
+
+    .section > p, .section-center > p {
+      margin-top: .85rem;
+      color: var(--gray-4); font-size: 1.05rem;
+      max-width: 540px;
+    }
+
+    .section-center > p { margin-inline: auto; }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.5rem;
+      margin-top: 3rem;
+      max-width: 900px; margin-inline: auto;
+    }
+
+    .feature-card {
+      background: var(--gray-1);
+      border: 1.5px solid var(--gray-2);
+      border-radius: var(--radius);
+      padding: 1.75rem 1.5rem;
+      transition: border-color .15s, box-shadow .15s;
+    }
+
+    .feature-card:hover {
+      border-color: var(--gray-3);
+      box-shadow: 0 4px 20px rgba(0,0,0,.06);
+    }
+
+    .feature-icon {
+      width: 44px; height: 44px;
+      background: #fdecea;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 1rem;
+      font-size: 1.3rem;
+    }
+
+    .feature-card h3 { font-size: 1rem; font-weight: 700; color: var(--dark); }
+    .feature-card p  { margin-top: .4rem; font-size: .9rem; color: var(--gray-4); line-height: 1.55; }
+
+    /* ── HOW IT WORKS ── */
+    .how-wrap {
+      background: var(--gray-1);
+      border-top: 1.5px solid var(--gray-2);
+      border-bottom: 1.5px solid var(--gray-2);
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 2rem;
+      margin-top: 3rem;
+      max-width: 860px; margin-inline: auto;
+    }
+
+    .step { text-align: center; }
+
+    .step-num {
+      width: 48px; height: 48px;
+      background: var(--red);
+      color: #fff;
+      border-radius: 50%;
+      font-size: 1.2rem; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1rem;
+    }
+
+    .step h3 { font-size: .95rem; font-weight: 700; color: var(--dark); }
+    .step p   { margin-top: .35rem; font-size: .88rem; color: var(--gray-4); line-height: 1.55; }
+
+    /* ── CTA ── */
+    .cta-section {
+      text-align: center;
+      padding: 6rem 2rem;
+      background: linear-gradient(135deg, var(--dark) 0%, #2d3240 100%);
+    }
+
+    .cta-section h2 {
+      font-size: clamp(1.6rem, 3.5vw, 2.25rem);
+      font-weight: 800; color: #fff;
+    }
+
+    .cta-section p {
+      margin-top: .85rem;
+      color: rgba(255,255,255,.6);
+      font-size: 1.05rem;
+      max-width: 420px; margin-inline: auto;
+    }
+
+    .cta-section .hero-cta { margin-top: 2.5rem; }
+
+    .cta-section .btn-secondary {
+      color: #fff; background: transparent;
+      border-color: rgba(255,255,255,.3);
+    }
+
+    .cta-section .btn-secondary:hover { border-color: rgba(255,255,255,.7); }
+
+    /* ── FOOTER ── */
+    footer {
+      padding: 2rem;
+      text-align: center;
+      font-size: .85rem; color: var(--gray-4);
+      border-top: 1.5px solid var(--gray-2);
+    }
+
+    footer a { color: var(--red); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    @media (max-width: 560px) {
+      nav { padding: 0 1.25rem; }
+      .hero { padding: 4rem 1.25rem 3.5rem; }
+      .demo-wrap { padding: 1rem 1.25rem 3.5rem; }
+      .section { padding: 3.5rem 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-brand" href="#">
+    <img src="../extension/images/icon128.png" alt="Redmine Image Downloader icon" />
+    Redmine Image Downloader
+  </a>
+  <a class="btn-nav" href="https://github.com/rtcoder/redmine-images-downloader" target="_blank" rel="noopener">
+    View on GitHub
+  </a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <circle cx="6" cy="6" r="5" fill="#c0392b"/>
+      <path d="M3.5 6l1.8 1.8L8.5 4.5" stroke="#fff" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Chrome Extension — Free &amp; Open Source
+  </div>
+  <h1>Download all Redmine images<br/><span>with one click</span></h1>
+  <p>Stop saving images one by one. Redmine Image Downloader adds a single button that grabs every attachment from a post in seconds.</p>
+  <div class="hero-cta">
+    <a class="btn-primary" href="https://chromewebstore.google.com/detail/redmine-image-downloader/dnkfgaeggdboddlmgnmhmjkcomndgpln" target="_blank" rel="noopener">
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m-4-4l4 4 4-4"/>
+      </svg>
+      Get the Extension
+    </a>
+    <a class="btn-secondary" href="https://github.com/rtcoder/redmine-images-downloader" target="_blank" rel="noopener">
+      <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+      </svg>
+      View on GitHub
+    </a>
+  </div>
+</section>
+
+<!-- DEMO CARD -->
+<div class="demo-wrap">
+  <div class="demo-card">
+    <div class="demo-card-header">
+      <span class="dot dot-red"></span>
+      <span class="dot dot-yellow"></span>
+      <span class="dot dot-green"></span>
+    </div>
+    <div class="demo-section-title">Attachments</div>
+    <div class="demo-attachments">
+      <!-- placeholder thumbnails -->
+      <div class="demo-thumb">
+        <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#7a8394" stroke-width="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="3"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <path d="M21 15l-5-5L5 21"/>
+        </svg>
+      </div>
+      <div class="demo-thumb">
+        <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#7a8394" stroke-width="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="3"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <path d="M21 15l-5-5L5 21"/>
+        </svg>
+      </div>
+      <div class="demo-thumb">
+        <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#7a8394" stroke-width="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="3"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <path d="M21 15l-5-5L5 21"/>
+        </svg>
+      </div>
+      <div class="demo-thumb">
+        <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#7a8394" stroke-width="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="3"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <path d="M21 15l-5-5L5 21"/>
+        </svg>
+      </div>
+      <div class="demo-thumb">
+        <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#7a8394" stroke-width="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="3"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <path d="M21 15l-5-5L5 21"/>
+        </svg>
+      </div>
+    </div>
+
+    <button class="demo-download-btn">
+      <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m-4-4l4 4 4-4"/>
+      </svg>
+      Download all
+    </button>
+    <div class="demo-arrow">← injected automatically by the extension</div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section class="section section-center">
+  <div class="section-label">Features</div>
+  <h2>Everything you need,<br/>nothing you don't</h2>
+  <p>A focused tool that does one thing well — no configuration, no sign-in, no bloat.</p>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">🔍</div>
+      <h3>Auto-detection</h3>
+      <p>Recognises Redmine pages automatically — works on any self-hosted or cloud Redmine instance.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <h3>One-click batch download</h3>
+      <p>A single "Download all" button appears next to each album. Click once, get everything.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📁</div>
+      <h3>Original filenames</h3>
+      <p>Files land in your Downloads folder with their original names — no random strings, no renaming needed.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔗</div>
+      <h3>Smart URL handling</h3>
+      <p>Resolves relative URLs and strips duplicates automatically before starting downloads.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔒</div>
+      <h3>Minimal permissions</h3>
+      <p>Only the <code>downloads</code> permission — no access to your data, no telemetry.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🆓</div>
+      <h3>Free &amp; open source</h3>
+      <p>MIT licensed. Inspect the code, fork it, contribute — it's all on GitHub.</p>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section section-center how-wrap">
+  <div class="section-label">How it works</div>
+  <h2>Three steps. Zero friction.</h2>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h3>Install</h3>
+      <p>Add the extension to Chrome from GitHub or the Chrome Web Store.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <h3>Open a Redmine issue</h3>
+      <p>Navigate to any Redmine issue or page that contains image attachments.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <h3>Click "Download all"</h3>
+      <p>The button appears automatically next to each image album. Click it and all images download instantly.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <h2>Ready to save time?</h2>
+  <p>Install Redmine Image Downloader today and never click images one by one again.</p>
+  <div class="hero-cta">
+    <a class="btn-primary" href="https://chromewebstore.google.com/detail/redmine-image-downloader/dnkfgaeggdboddlmgnmhmjkcomndgpln" target="_blank" rel="noopener">
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m-4-4l4 4 4-4"/>
+      </svg>
+      Get the Extension
+    </a>
+    <a class="btn-secondary" href="https://github.com/rtcoder/redmine-images-downloader" target="_blank" rel="noopener">
+      <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+      </svg>
+      Source Code
+    </a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <p>
+    Made by <a href="https://github.com/rtcoder" target="_blank" rel="noopener">Dawid Jeż</a> ·
+    <a href="https://github.com/rtcoder/redmine-images-downloader" target="_blank" rel="noopener">GitHub</a> ·
+    MIT License
+  </p>
+</footer>
+
+</body>
+</html>
